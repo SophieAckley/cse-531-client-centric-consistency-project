@@ -1,4 +1,4 @@
-<h1>CSE 531: gRPC Project</h1>
+<h1>CSE 531: Client-Centric Consistency Project</h1>
 
 Andrew Flores
 
