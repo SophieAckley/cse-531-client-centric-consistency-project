@@ -26,7 +26,6 @@ def serveBranch(branch):
 
 # Start customer gRPC client processes
 def serveCustomer(customer):
-    customer.createStub()
     customer.executeEvents()
 
     output = customer.output()
@@ -50,7 +49,7 @@ def createProcesses(processes):
 
     # Instantiate Branch objects
     for process in processes:
-        if process["type"] == "branch":
+        if process["type"] == "bank":
             branch = Branch(process["id"], process["balance"], branchIds)
             branches.append(branch)
             branchIds.append(branch.id)

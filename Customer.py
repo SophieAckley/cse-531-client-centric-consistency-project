@@ -12,14 +12,7 @@ class Customer:
         self.id = id
         self.events = events
         self.recvMsg = list()
-        self.stub = None
         self.writeset = list()
-
-    # Setup gRPC channel & client stub for branch
-    def createStub(self):
-        port = str(50000 + self.id)
-        channel = grpc.insecure_channel("localhost:" + port)
-        self.stub = branch_pb2_grpc.BranchStub(channel)
 
     # Send gRPC request for each event
     def executeEvents(self):
@@ -28,19 +21,25 @@ class Customer:
             if event["interface"] == "query":
                 sleep(3)
 
-            # Send request to Branch server
-            response = self.stub.MsgDelivery(
-                MsgRequest(id=event["id"], interface=event["interface"], money=event["money"])
+            # Setup gRPC channel & client stub for branch
+            port = str(50000 + event["dest"])
+            channel = grpc.insecure_channel("localhost:" + port)
+            stub = branch_pb2_grpc.BranchStub(channel)
+
+            print(
+                colored(
+                    "Customer #" + str(self.id) + "\tto Branch #" + str(event["dest"]) + "\t" + str(event), "magenta"
+                )
             )
 
-            # Create msg to be appended to self.recvMsg list
-            msg = {"interface": response.interface, "result": response.result}
+            # Set MsgRequest.money = 0 for query events
+            money = event["money"] if event["interface"] != "query" else 0
 
-            # Add 'money' entry for 'query' events
-            if response.interface == "query":
-                msg["money"] = response.money
+            # Send request to Branch server
+            response = stub.MsgDelivery(MsgRequest(interface=event["interface"], money=money, writeset=self.writeset))
 
-            self.recvMsg.append(msg)
+            # Append to self.recvMsg list
+            self.recvMsg.append({"interface": response.interface, "dest": event["dest"]})
 
     # Generate output msg
     def output(self):
