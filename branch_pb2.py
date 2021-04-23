@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\x0c\x62ranch.proto\":\n\nMsgRequest\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x11\n\tinterface\x18\x02 \x01(\t\x12\r\n\x05money\x18\x03 \x01(\x05\"?\n\x0bMsgResponse\x12\x11\n\tinterface\x18\x01 \x01(\t\x12\x0e\n\x06result\x18\x02 \x01(\t\x12\r\n\x05money\x18\x03 \x01(\x05\x32\x63\n\x06\x42ranch\x12*\n\x0bMsgDelivery\x12\x0b.MsgRequest\x1a\x0c.MsgResponse\"\x00\x12-\n\x0eMsgPropagation\x12\x0b.MsgRequest\x1a\x0c.MsgResponse\"\x00\x62\x06proto3'
+  serialized_pb=b'\n\x0c\x62ranch.proto\"L\n\nMsgRequest\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x11\n\tinterface\x18\x02 \x01(\t\x12\r\n\x05money\x18\x03 \x01(\x05\x12\x10\n\x08writeset\x18\x04 \x03(\x05\"Q\n\x0bMsgResponse\x12\x11\n\tinterface\x18\x01 \x01(\t\x12\x0e\n\x06result\x18\x02 \x01(\t\x12\r\n\x05money\x18\x03 \x01(\x05\x12\x10\n\x08writeset\x18\x04 \x03(\x05\x32\x63\n\x06\x42ranch\x12*\n\x0bMsgDelivery\x12\x0b.MsgRequest\x1a\x0c.MsgResponse\"\x00\x12-\n\x0eMsgPropagation\x12\x0b.MsgRequest\x1a\x0c.MsgResponse\"\x00\x62\x06proto3'
 )
 
 
@@ -54,6 +54,13 @@ _MSGREQUEST = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='writeset', full_name='MsgRequest.writeset', index=3,
+      number=4, type=5, cpp_type=1, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
   ],
   extensions=[
   ],
@@ -67,7 +74,7 @@ _MSGREQUEST = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=16,
-  serialized_end=74,
+  serialized_end=92,
 )
 
 
@@ -100,6 +107,13 @@ _MSGRESPONSE = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='writeset', full_name='MsgResponse.writeset', index=3,
+      number=4, type=5, cpp_type=1, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
   ],
   extensions=[
   ],
@@ -112,8 +126,8 @@ _MSGRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=76,
-  serialized_end=139,
+  serialized_start=94,
+  serialized_end=175,
 )
 
 DESCRIPTOR.message_types_by_name['MsgRequest'] = _MSGREQUEST
@@ -143,8 +157,8 @@ _BRANCH = _descriptor.ServiceDescriptor(
   index=0,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=141,
-  serialized_end=240,
+  serialized_start=177,
+  serialized_end=276,
   methods=[
   _descriptor.MethodDescriptor(
     name='MsgDelivery',

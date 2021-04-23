@@ -13,6 +13,7 @@ class Customer:
         self.events = events
         self.recvMsg = list()
         self.stub = None
+        self.writeset = list()
 
     # Setup gRPC channel & client stub for branch
     def createStub(self):

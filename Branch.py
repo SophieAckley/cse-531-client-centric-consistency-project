@@ -14,6 +14,7 @@ class Branch(branch_pb2_grpc.BranchServicer):
         self.branches = branches
         self.stubList = list()
         self.recvMsg = list()
+        self.writeset = list()
 
     # Setup gRPC channel & client stub for each branch
     def createStubs(self):
