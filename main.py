@@ -1,16 +1,19 @@
 import argparse
 import json
 import multiprocessing
-from time import sleep
+import os
 from concurrent import futures
-from termcolor import colored
+from time import sleep
 
 import grpc
+from termcolor import colored
 
 import branch_pb2_grpc
 from Branch import Branch
 from Customer import Customer
 
+# Global var to store output file name
+output_filename = None
 
 # Start branch gRPC server process
 def serveBranch(branch):
@@ -25,12 +28,17 @@ def serveBranch(branch):
 
 
 # Start customer gRPC client processes
-def serveCustomer(customer):
-    customer.executeEvents()
+def serveCustomer(customer, output_filename):
+    # Execute events and get Customer balance output
+    output = customer.executeEvents()
 
-    output = customer.output()
-    output_file = open("output.txt", "a")
-    output_file.write(str(output) + "\n")
+    # Interpret existing contents as JSON array & append new output entry
+    output_json = json.load(open(output_filename))
+    output_json.append(output)
+
+    # Overwrite contents of output file with updated JSON
+    output_file = open(output_filename, "w")
+    output_file.write(json.dumps(output_json, indent=4))
     output_file.close()
 
 
@@ -71,7 +79,7 @@ def createProcesses(processes):
 
     # Spawn Customer processes
     for customer in customers:
-        customer_process = multiprocessing.Process(target=serveCustomer, args=(customer,))
+        customer_process = multiprocessing.Process(target=serveCustomer, args=(customer, output_filename))
         customerProcesses.append(customer_process)
         customer_process.start()
 
@@ -92,13 +100,17 @@ if __name__ == "__main__":
 
     try:
         # Load JSON file from 'input_file' arg
-        input = json.load(open(args.input_file))
+        input_file = open(args.input_file)
+        input_json = json.load(input_file)
 
         # Initialize output file
-        open("output.txt", "w").close()
+        output_filename = "output/" + os.path.basename(input_file.name)
+        output_file = open(output_filename, "w")
+        output_file.write("[]")
+        output_file.close()
 
         # Create objects/processes from input file
-        createProcesses(input)
+        createProcesses(input_json)
     except FileNotFoundError:
         print(colored("Could not find input file '" + args.input_file + "'", "red"))
     except json.decoder.JSONDecodeError:

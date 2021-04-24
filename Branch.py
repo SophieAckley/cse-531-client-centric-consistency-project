@@ -23,13 +23,26 @@ class Branch(branch_pb2_grpc.BranchServicer):
                 channel = grpc.insecure_channel("localhost:" + port)
                 self.stubList.append(branch_pb2_grpc.BranchStub(channel))
 
+    # Generate new event ID, append to writeset
+    def updateWriteset(self):
+        newEventId = len(self.writeset) + 1
+        self.writeset.append(newEventId)
+
+    # Verify self.writeset contains all entries from incoming writeset
+    def verifyWriteset(self, ws):
+        return all(entry in self.writeset for entry in ws)
+
     # Incoming MsgRequest from Customer transaction
     def MsgDelivery(self, request, context):
-        return self.ProcessMsg(request, False)
+        # Enforce monotonic writes
+        if self.verifyWriteset(request.writeset):
+            return self.ProcessMsg(request, False)
 
     # Incoming MsgRequest from Branch propagation
     def MsgPropagation(self, request, context):
-        return self.ProcessMsg(request, True)
+        # Enforce monotonic writes
+        if self.verifyWriteset(request.writeset):
+            return self.ProcessMsg(request, True)
 
     # Handle received Msg, generate and return a MsgResponse
     def ProcessMsg(self, request, isPropagation):
@@ -41,8 +54,13 @@ class Branch(branch_pb2_grpc.BranchServicer):
             if self.balance >= request.money:
                 self.balance -= request.money
 
-        if not isPropagation and request.interface != "query":
-            self.Propagate_Transaction(request)
+        if request.interface != "query":
+            # Update writeset with a new event ID
+            self.updateWriteset()
+
+            # Propagate to other branches
+            if not isPropagation:
+                self.Propagate_Transaction(request)
 
         return MsgResponse(interface=request.interface, money=self.balance, writeset=self.writeset)
 

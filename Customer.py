@@ -17,20 +17,12 @@ class Customer:
     # Send gRPC request for each event
     def executeEvents(self):
         for event in self.events:
-            # Sleep 3 seconds for 'query' events
-            if event["interface"] == "query":
-                sleep(3)
+            # print(colored("\nC#" + str(self.id) + " to B#" + str(event["dest"]) + "\t" + str(event), "cyan"))
 
             # Setup gRPC channel & client stub for branch
             port = str(50000 + event["dest"])
             channel = grpc.insecure_channel("localhost:" + port)
             stub = branch_pb2_grpc.BranchStub(channel)
-
-            print(
-                colored(
-                    "Customer #" + str(self.id) + "\tto Branch #" + str(event["dest"]) + "\t" + str(event), "magenta"
-                )
-            )
 
             # Set MsgRequest.money = 0 for query events
             money = event["money"] if event["interface"] != "query" else 0
@@ -39,8 +31,14 @@ class Customer:
             response = stub.MsgDelivery(MsgRequest(interface=event["interface"], money=money, writeset=self.writeset))
 
             # Append to self.recvMsg list
-            self.recvMsg.append({"interface": response.interface, "dest": event["dest"]})
+            self.recvMsg.append({"interface": response.interface, "dest": event["dest"], "money": response.money})
 
-    # Generate output msg
-    def output(self):
-        return {"id": self.id, "recv": self.recvMsg}
+            # Update writeset from response
+            if event["interface"] != "query":
+                self.writeset = response.writeset
+
+            # Sleep to ensure writesets have time to update
+            sleep(0.25)
+
+        # Return output msg
+        return {"id": self.id, "balance": self.recvMsg[-1]["money"]}
