@@ -1,70 +1,106 @@
-from concurrent import futures
-
 import grpc
-from termcolor import colored
+import example_pb2
+import example_pb2_grpc
+from concurrent import futures
+import time
+import logging
 
-import branch_pb2_grpc
-from branch_pb2 import MsgRequest, MsgResponse
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-
-class Branch(branch_pb2_grpc.BranchServicer):
+class Branch(example_pb2_grpc.RPCServicer):
+    
     def __init__(self, id, balance, branches):
         self.id = id
         self.balance = balance
         self.branches = branches
-        self.stubList = list()
-        self.writeset = list()
+        self.stubList = []
+        
+        # Create stubs for inter-branch communication
+        for branch_id in self.branches:
+            if branch_id != self.id:
+                channel = grpc.insecure_channel(f'localhost:{50000 + branch_id}')
+                stub = example_pb2_grpc.RPCStub(channel)
+                self.stubList.append(stub)
 
-    # Setup gRPC channel & client stub for each branch
-    def createStubs(self):
-        for branchId in self.branches:
-            if branchId != self.id:
-                port = str(50000 + branchId)
-                channel = grpc.insecure_channel("localhost:" + port)
-                self.stubList.append(branch_pb2_grpc.BranchStub(channel))
-
-    # Generate new event ID, append to writeset
-    def updateWriteset(self):
-        newEventId = len(self.writeset) + 1
-        self.writeset.append(newEventId)
-
-    # Verify self.writeset contains all entries from incoming writeset
-    def verifyWriteset(self, ws):
-        return all(entry in self.writeset for entry in ws)
-
-    # Incoming MsgRequest from Customer transaction
     def MsgDelivery(self, request, context):
-        # Enforce monotonic writes
-        if self.verifyWriteset(request.writeset):
-            return self.ProcessMsg(request, False)
-
-    # Incoming MsgRequest from Branch propagation
-    def MsgPropagation(self, request, context):
-        # Enforce monotonic writes
-        if self.verifyWriteset(request.writeset):
-            return self.ProcessMsg(request, True)
-
-    # Handle received Msg, generate and return a MsgResponse
-    def ProcessMsg(self, request, isPropagation):
+        """Handles incoming requests and directs them to the appropriate interface."""
+        
         if request.interface == "query":
-            pass
+            return self.Query(request)
         elif request.interface == "deposit":
-            self.balance += request.money
+            return self.Deposit(request)
         elif request.interface == "withdraw":
-            if self.balance >= request.money:
-                self.balance -= request.money
+            return self.Withdraw(request)
+        elif request.interface == "propagate_deposit":
+            return self.Propagate_Deposit(request)
+        elif request.interface == "propagate_withdraw":
+            return self.Propagate_Withdraw(request)
+        else:
+            logger.error(f"Invalid interface requested: {request.interface}")
+            return example_pb2.Response(interface="error", result="Invalid interface")
 
-        if request.interface != "query":
-            # Update writeset with a new event ID
-            self.updateWriteset()
+    def Query(self, request):
+        """Handles balance query requests."""
+        return example_pb2.Response(interface="query", balance=self.balance)
 
-            # Propagate to other branches
-            if not isPropagation:
-                self.Propagate_Transaction(request)
+    def Deposit(self, request):
+        """Handles deposit requests and propagates the deposit to other branches."""
+        if request.money < 0:
+            logger.error("Deposit amount cannot be negative.")
+            return example_pb2.Response(interface="deposit", result="fail")
 
-        return MsgResponse(interface=request.interface, money=self.balance, writeset=self.writeset)
+        # Update balance and propagate to other branches
+        self.balance += request.money
+        success = self.Propagate_To_Branches("propagate_deposit", request.money)
+        if success:
+            logger.info(f"Branch {self.id} balance after deposit: {self.balance}")
+            return example_pb2.Response(interface="deposit", result="success")
+        else:
+            return example_pb2.Response(interface="deposit", result="fail")
 
-    # Propagate Customer transactions to other Branches
-    def Propagate_Transaction(self, request):
+    def Withdraw(self, request):
+        """Handles withdrawal requests and propagates the withdrawal to other branches."""
+        if request.money < 0:
+            logger.error("Withdrawal amount cannot be negative.")
+            return example_pb2.Response(interface="withdraw", result="fail")
+
+        if self.balance >= request.money:
+            self.balance -= request.money
+            success = self.Propagate_To_Branches("propagate_withdraw", request.money)
+            if success:
+                logger.info(f"Branch {self.id} balance after withdrawal: {self.balance}")
+                return example_pb2.Response(interface="withdraw", result="success")
+            else:
+                return example_pb2.Response(interface="withdraw", result="fail")
+        else:
+            return example_pb2.Response(interface="withdraw", result="fail")
+
+    def Propagate_Deposit(self, request):
+        """Receives deposit propagation from other branches and updates balance."""
+        self.balance += request.money
+        logger.info(f"Branch {self.id} balance after propagated deposit: {self.balance}")
+        return example_pb2.Response(interface="propagate_deposit", result="success")
+
+    def Propagate_Withdraw(self, request):
+        """Receives withdrawal propagation from other branches and updates balance."""
+        self.balance -= request.money
+        logger.info(f"Branch {self.id} balance after propagated withdrawal: {self.balance}")
+        return example_pb2.Response(interface="propagate_withdraw", result="success")
+
+    def Propagate_To_Branches(self, interface, money):
+        """Propagates deposit or withdrawal actions to all other branches and waits for confirmation."""
+        all_confirmed = True
         for stub in self.stubList:
-            stub.MsgPropagation(MsgRequest(interface=request.interface, money=request.money, writeset=request.writeset))
+            try:
+                request = example_pb2.Request(interface=interface, money=money)
+                response = stub.MsgDelivery(request)
+                if response.result != "success":
+                    logger.warning(f"Propagation of {interface} to branch failed.")
+                    all_confirmed = False
+                time.sleep(0.1)  # Delay to allow propagation
+            except grpc.RpcError as e:
+                logger.error(f"Error propagating to branch: {e.details()}")
+                all_confirmed = False
+        return all_confirmed
